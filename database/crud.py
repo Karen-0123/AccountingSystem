@@ -2,6 +2,8 @@
 # 每次操作後須確實關閉連線
 from database.db import get_connection
 from datetime import datetime
+import pymysql
+from pymysql.cursors import DictCursor
 
 # 新增LINE BOT的json資料到資料庫
 def insert_transaction(user_id, category_id, amount, type, memo):
@@ -28,46 +30,51 @@ def insert_transaction(user_id, category_id, amount, type, memo):
         }
         
     except Exception as e:
-        print("SQL 執行錯誤：", repr(e))   # ✅ 這一行會顯示真正錯誤原因
+        print("SQL 執行錯誤：", repr(e))
         return {"status": "error", "msg": str(e)}
     
     finally:
         cursor.close()
         conn.close()
 
+# 查詢
+def get_transactions_by_date(user_id, date):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)  # 改成 DictCursor????
 
-# # 查詢
-# def get_transactions_by_date(user_id, date):
-#     # date 格式: "2025-12-07"
-#     conn = get_connection()
-#     cursor = conn.cursor()
+        query = """
+            SELECT category_id, amount, type, timestamp, memo
+            FROM transactions
+            WHERE user_id = %s AND timestamp LIKE %s
+            ORDER BY timestamp ASC
+        """
 
-#     query = """
-#         SELECT category, amount, type, timestamp, memo
-#         FROM transactions
-#         WHERE user_id = %s AND timestamp LIKE %s
-#         ORDER BY timestamp ASC
-#     """
+        cursor.execute(query, (user_id, f"{date}%"))
+        rows = cursor.fetchall() # 每個 row 是 dict
 
-#     cursor.execute(query, (user_id, f"{date}%"))
-#     rows = cursor.fetchall()
+        result = []
+        for row in rows:
+            result.append({
+                "category_id": row["category_id"],
+                "amount": row["amount"],
+                "type": row["type"],
+                "timestamp": row["timestamp"],
+                "memo": row["memo"]
+            })
+
+        return {
+            "transactions": result
+        }
+        
+    except Exception as e:
+        print("SQL 執行錯誤：", repr(e))
+        return {"status": "error", "msg": str(e)}
     
-#     conn.close()
-
-#     result = []
-#     for row in rows:
-#         result.append({
-#             "category": row[0],
-#             "amount": row[1],
-#             "type": row[2],
-#             "timestamp": row[3],
-#             "memo": row[4]
-#         })
-
-#     return {
-#         "transactions": result
-#     }
-
+    finally:
+        cursor.close()
+        conn.close()
+        
 # # 刪除
 # def delete_transaction(transaction_id):
 #     conn = get_connection()
