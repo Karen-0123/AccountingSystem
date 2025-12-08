@@ -1,1 +1,6 @@
 # 套件需求
+# 使用方式: cmd在專案根目錄執行這個檔案，pip freeze > requirements.txt
+flask==3.0.0
+line-bot-sdk==2.4.2
+pymysql==1.1.0
+python-dotenv==1.0.1
