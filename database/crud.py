@@ -8,7 +8,9 @@ from pymysql.cursors import DictCursor
 # 新增LINE BOT的json資料到資料庫
 def insert_transaction(user_id, category_id, amount, type, memo):
     try:
+        print("連線中...")
         conn = get_connection()
+        print("連線成功")
         cursor = conn.cursor()
 
         time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -33,9 +35,9 @@ def insert_transaction(user_id, category_id, amount, type, memo):
         print("SQL 執行錯誤：", repr(e))
         return {"status": "error", "msg": str(e)}
     
-    finally:
-        cursor.close()
-        conn.close()
+    # finally:
+    #     cursor.close()
+    #     conn.close()
 
 # 查詢
 def get_transactions_by_date(user_id, date):
