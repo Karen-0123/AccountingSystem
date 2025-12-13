@@ -1,3 +1,5 @@
+#app.py
+from database.db import get_connection  # 這是您的連線函式
 from flask import Flask, request, abort
 
 from linebot.v3 import (
@@ -11,12 +13,21 @@ from linebot.v3.messaging import (
     ApiClient,
     MessagingApi,
     ReplyMessageRequest,
-    TextMessage
+    TextMessage,
+    TemplateMessage,
+    ButtonsTemplate,
+    PostbackAction,
+    MulticastRequest,
+    PushMessageRequest
 )
 from linebot.v3.webhooks import (
     MessageEvent,
-    TextMessageContent
+    TextMessageContent,
+    FollowEvent,
+    PostbackEvent
 )
+
+from services.transaction_service import add_transaction
 
 app = Flask(__name__)
 
@@ -42,8 +53,61 @@ def callback():
 
     return 'OK'
 
+#加入好友事件
+@handler.add(FollowEvent)
+def handle_follow(event):
+    print(f'Got {event.type} event')
 
+#訊息事件
 @handler.add(MessageEvent, message=TextMessageContent)
+def handle_message(event):
+    print("👉 進入 handle_message")
+    print("收到訊息：", event.message.text)
+    user_id = event.source.user_id
+    text = event.message.text.strip()
+    with ApiClient(configuration) as api_client:
+        line_bot_api = MessagingApi(api_client)
+        try:
+            # ====== 拆解使用者輸入 ======
+            parts = text.split()
+            if len(parts) < 2:
+                raise ValueError("格式錯誤")
+            category = parts[0]
+            amount = int(parts[1])
+            memo = " ".join(parts[2:]) if len(parts) > 2 else ""
+            # ====== 準備存入資料庫的資料 ======
+            data = {
+                "category": category,
+                "amount": amount,
+                "type": "expense",   # 目前先固定支出
+                "memo": memo
+            }
+            # ====== 寫入資料庫 ======
+            add_transaction(user_id, data)
+
+            reply_text = (
+                f"✅ 已記錄\n"
+                f"類別：{category}\n"
+                f"金額：{amount}\n"
+                f"備註：{memo if memo else '無'}"
+            )
+
+        except ValueError:
+            reply_text = (
+                "❌ 輸入格式錯誤\n"
+                "請輸入：\n"
+                "類別 金額 備註\n"
+                "例如：餐飲 120 炒飯"
+            )
+
+        line_bot_api.reply_message_with_http_info(
+            ReplyMessageRequest(
+                reply_token=event.reply_token,
+                messages=[TextMessage(text=reply_text)]
+            )
+        )
+
+'''@handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
@@ -52,7 +116,6 @@ def handle_message(event):
                 reply_token=event.reply_token,
                 messages=[TextMessage(text=event.message.text)]
             )
-        )
-
+        )'''
 if __name__ == "__main__":
     app.run()
